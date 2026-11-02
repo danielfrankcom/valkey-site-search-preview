@@ -1,0 +1,73 @@
+# Builds valkey.io from one pinned commit of the proposed site search branch, the way that commit's own deploy builds
+# it (its .github/actions/build-site action: Zola, then the Pagefind index), and publishes it on this repository's
+# GitHub Pages site. The only differences from a production build are the preview's base_url, set below before the
+# build, and adapt-build.py after it, which moves the site under this project path, removes analytics and adds noindex.
+name: Build and deploy the preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PREVIEW_ORIGIN: https://danielfrankcom.github.io
+  PREVIEW_PATH: /valkey-site-search-preview
+  # The branch's head when this preview was made. To preview a later commit, change this and push.
+  WEBSITE_REPOSITORY: danielfrankcom/valkey-io.github.io
+  WEBSITE_COMMIT: 2f530ce7b9d2b2b04d43b5e37edf5f340c9c6a8d
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          path: preview
+
+      - name: Check out the website at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.WEBSITE_REPOSITORY }}
+          ref: ${{ env.WEBSITE_COMMIT }}
+          path: website
+
+      - name: Use the preview's base_url
+        run: |
+          sed -i -E "s#^base_url = .*#base_url = \"${PREVIEW_ORIGIN}${PREVIEW_PATH}\"#" website/config.toml
+          grep -q "^base_url = \"${PREVIEW_ORIGIN}${PREVIEW_PATH}\"" website/config.toml
+
+      # The pinned commit's own build: content repositories at their default branches, Zola, then Pagefind.
+      - name: Build
+        uses: ./website/.github/actions/build-site
+        with:
+          path: website
+
+      - name: Move the site under its path, remove analytics, add noindex
+        run: python3 preview/adapt-build.py website/public "$PREVIEW_PATH"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./website/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
