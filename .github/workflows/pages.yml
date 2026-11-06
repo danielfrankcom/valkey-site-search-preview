@@ -21,7 +21,7 @@ env:
   PREVIEW_PATH: /valkey-site-search-preview
   # The branch's head when this preview was made. To preview a later commit, change this and push.
   WEBSITE_REPOSITORY: danielfrankcom/valkey-io.github.io
-  WEBSITE_COMMIT: 2f530ce7b9d2b2b04d43b5e37edf5f340c9c6a8d
+  WEBSITE_COMMIT: ebf5a98447c9b40cd620607290844783814d2782
 
 jobs:
   build:
